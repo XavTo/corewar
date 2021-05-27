@@ -14,10 +14,12 @@ int get_com_pos(command_t *com, list_t *list)
     int res = 0;
 
     foreach(list->head, temp) {
-        temp_com = temp->data;
-        res++;
+        temp_com = (command_t *)temp->data;
         if (temp_com == com)
-            return res;
+            return res + 1;
+        if (!temp_com->name)
+            continue;
+        res++;
         if (barray_len(temp_com->params) != 1 || get_id(temp_com->name) == 15)
             res++;
         for (size_t i = 0; i < barray_len(temp_com->params); i++)
@@ -33,11 +35,12 @@ int get_label_pos(char *label, list_t *list)
     int res = 0;
 
     foreach(list->head, temp) {
-        temp_com = temp->data;
+        temp_com = (command_t *)temp->data;
+        if (temp_com->label && !bstrcmp(temp_com->label, label))
+            return res + 1;
+        if (!temp_com->name)
+            continue;
         res++;
-        if (temp_com->label && !bstrcmp(temp_com->label, label)) {
-            return res;
-        }
         for (size_t i = 0; i < barray_len(temp_com->params); i++) {
             res += get_size(temp_com, i, list, get_id(temp_com->name));
         }
@@ -47,12 +50,19 @@ int get_label_pos(char *label, list_t *list)
     return res;
 }
 
-void write_label(int fd, command_t *com, size_t i, list_t *list)
+void write_label(int fd, command_t *com, char *param, list_t *list)
 {
-    int label_pos = get_label_pos(com->params[i] + 2, list);
+    int label_pos = get_label_pos(param, list);
     int com_pos = get_com_pos(com, list);
     int res = label_pos - com_pos;
+    int name_id = get_id(com->name);
 
-    res = swap_endian_2(res);
-    write(fd, &res, 2);
+    if (name_id >= 8 && name_id <= 14 && name_id != 12) {
+        res = swap_endian_2(res);
+        write(fd, &res, 2);
+    }
+    else {
+        res = swap_endian_4(res);
+        write(fd, &res, 4);
+    }
 }
